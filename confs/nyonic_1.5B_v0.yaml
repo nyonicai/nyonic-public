@@ -1,0 +1,8 @@
+model_path: nyonic_1.5B_v0.ckpt
+gen_conf:
+  max_seq_len: 1024
+  max_gen_len: 512
+  max_batch_size: 16
+  sampling:
+    strategy: vanilla
+    temperature: 1.0

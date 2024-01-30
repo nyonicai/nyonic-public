@@ -1,0 +1,1 @@
+{"name": "the-pile-tokenizer", "model_type": "bpe", "vocab_size": 50304, "byte_fallback": true, "split_digits": true}
