@@ -1,0 +1,111 @@
+# pre-commit run --all-files
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+    -   id: check-added-large-files
+        args: ['--maxkb=1024']
+    -   id: check-case-conflict
+    -   id: check-executables-have-shebangs
+    -   id: check-merge-conflict
+    -   id: check-shebang-scripts-are-executable
+    -   id: check-symlinks
+    -   id: check-yaml
+    -   id: debug-statements
+        exclude: tests/
+    -   id: destroyed-symlinks
+    -   id: end-of-file-fixer
+        exclude: tests/test_changes/
+        files: \.(py|sh|rst|yml|yaml)$
+    -   id: mixed-line-ending
+    -   id: trailing-whitespace
+        files: \.(py|sh|rst|yml|yaml)$
+    -   id: pretty-format-json
+        args: ['--autofix']
+-   repo: https://github.com/psf/black
+    rev: 23.7.0
+    hooks:
+    -   id: black
+        exclude: tests/
+        args: [--check]
+-   repo: https://github.com/PyCQA/flake8
+    rev: 6.1.0
+    hooks:
+    -   id: flake8
+        additional_dependencies: [
+#            'flake8-absolute-import',
+            'flake8-annotations',
+            'flake8-future-annotations',
+            'flake8-blind-except',
+            'flake8-docstrings',
+            'flake8-bugbear',
+            'flake8-comprehensions',
+            'flake8-docstrings',
+            'flake8-implicit-str-concat',
+            'pydocstyle>=5.0.0',
+        ]
+        exclude: >
+            (?x)^(
+                .*conftest.py
+            )$
+-   repo: https://github.com/asottile/blacken-docs
+    rev: 1.16.0
+    hooks:
+    -   id: blacken-docs
+        additional_dependencies: [black==23.3.0]
+        exclude: ^.github/
+-   repo: https://github.com/rstcheck/rstcheck
+    rev: v6.1.2
+    hooks:
+    -   id: rstcheck
+        args: [
+            --report-level=warning,
+        ]
+-   repo: https://github.com/codespell-project/codespell
+    rev: v2.2.5
+    hooks:
+    -   id: codespell
+        files: \.(py|sh|rst|yml|yaml)$
+        exclude: >
+            (?x)^(
+                .*/tests/.*
+            )$
+-   repo: https://github.com/python-poetry/poetry
+    rev: 1.6.1
+    hooks:
+    -   id: poetry-check
+        args: ["-C", "data-pantry"]
+    -   id: poetry-check
+        args: ["-C", "./data_preprocessing"]
+    -   id: poetry-check
+        args: ["-C", "./training"]
+    -   id: poetry-check
+        args: ["-C", "./inference"]
+
+    -   id: poetry-lock
+        args: ["-C", "./data-pantry"]
+    -   id: poetry-lock
+        args: ["-C", "./data_preprocessing"]
+    -   id: poetry-lock
+        args: ["-C", "./training/"]
+    -   id: poetry-lock
+        args: ["-C", "./inference"]
+
+    -   id: poetry-export
+        args: ["-C", "./data-pantry", "-f", "requirements.txt", "-o", "./data-pantry/requirements.txt"]
+    -   id: poetry-export
+        args: ["-C", "./data_preprocessing", "-f", "requirements.txt", "-o", "./data_preprocessing/requirements.txt"]
+    -   id: poetry-export
+        args: ["-C", "./training", "-f", "requirements.txt", "-o", "./training/requirements.txt"]
+    -   id: poetry-export
+        args: ["-C", "./inference", "-f", "requirements.txt", "-o", "./inference/requirements.txt"]
+
+    # Disable these hooks for now as the targets are not available
+    # -   id: poetry-install
+    #     args: ["-C", "./data-pantry"]
+    # -   id: poetry-install
+    #     args: ["-C", "./data_preprocessing"]
+    # -   id: poetry-install
+    #     args: ["-C", "./training/"]
+    # -   id: poetry-install
+    #     args: ["-C", "./inference"]
