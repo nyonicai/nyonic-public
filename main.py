@@ -24,7 +24,7 @@ def parse_args() -> Namespace:
     return parser.parse_args()
 
 
-def generate():
+def generate() -> str:
     """Completion of given prompts."""
     args = parse_args()
     assert os.path.exists(args.model_conf)
