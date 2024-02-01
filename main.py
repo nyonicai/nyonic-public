@@ -20,7 +20,7 @@ def parse_args() -> Namespace:
     parser.add_argument("top_p", default=1.0)
     parser.add_argument("top_k", default=100)
     parser.add_argument("temperature", default=1.0)
-    parser.add_argument('device', default="cuda:0")
+    parser.add_argument("device", default="cuda:0")
     return parser.parse_args()
 
 
@@ -41,9 +41,7 @@ def generate():
     else:
         print("Device not specified")
         device = (
-            torch.device("cuda")
-            if torch.cuda.is_available()
-            else torch.device("cpu")
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         )
     print(f"Loading model from {args.model_conf}")
     nyonic = GPTModel(cfg.model_args).to(torch.bfloat16)
@@ -60,7 +58,9 @@ def generate():
     prompt = "This is test, please write a lovely poem "
     print(f"Using prompt {prompt}")
     context_enc = torch.tensor([tokenizer.encode(prompt)]).to(device)
-    gen_length = min(args.gen_conf.max_seq_len - context_enc.shape[1], args.gen_conf.max_gen_len)
+    gen_length = min(
+        args.gen_conf.max_seq_len - context_enc.shape[1], args.gen_conf.max_gen_len
+    )
     sampler = functools.partial(
         sample,
         **cfg.gen_conf.sampling,
@@ -82,12 +82,11 @@ def generate():
         min_prompt_len=context_enc.shape[1],
         pad_id=tokenizer.pad_id,
         sampler=sampler,
-    )[0].tolist()[context_enc.shape[1]:]
+    )[0].tolist()[context_enc.shape[1] :]
     completion = tokenizer.decode(completion)
     return completion
 
 
 if __name__ == "__main__":
-
     print("Completion generated:\n")
     print(generate())
