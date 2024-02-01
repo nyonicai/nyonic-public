@@ -1,4 +1,4 @@
-model_path: nyonic_1.5B_v0.ckpt
+model_path: wonton-1.5B.pt
 tokenizer: tokenizers/nyonic-tokenizer-v0
 gen_conf:
   max_seq_len: 1024
