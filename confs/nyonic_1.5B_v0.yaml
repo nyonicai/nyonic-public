@@ -1,4 +1,5 @@
 model_path: nyonic_1.5B_v0.ckpt
+tokenizer: tokenizers/nyonic-tokenizer-v0
 gen_conf:
   max_seq_len: 1024
   max_gen_len: 512
@@ -6,3 +7,17 @@ gen_conf:
   sampling:
     strategy: vanilla
     temperature: 1.0
+model_args:
+  model_type: huntun_1.5B
+  context_len: 1024
+  d_embed: 1600
+  d_ff: 6400
+  n_layers: 48
+  n_heads: 25
+  activation: gelu
+  dropout: 0.0
+  enable_final_norm: true
+  enable_init_weights_gpt2: true
+  enable_is_causal: true
+  vocab_size: 50304
+
