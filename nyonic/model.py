@@ -177,8 +177,7 @@ class GPTModel(nn.Module):
 
         x = self.transformer_encoder(
             x,
-            attn_mask=attn_mask,
-            stuffing_mask=stuffing_mask,
+            mask=attn_mask,
             is_causal=self.enable_is_causal,
         )
 
