@@ -76,7 +76,7 @@ def generate() -> str:
     print(f"Using prompt {prompt}")
     context_enc = torch.tensor([tokenizer.encode(prompt)]).to(device)
     gen_length = min(
-        args.gen_conf.max_seq_len - context_enc.shape[1], args.gen_conf.max_gen_len
+        cfg.gen_conf.max_seq_len - context_enc.shape[1], cfg.gen_conf.max_gen_len
     )
     sampler = functools.partial(
         sample,
