@@ -121,9 +121,9 @@ class GPTModel(nn.Module):
 
         self.transformer_encoder: nn.Module
         encoder_layer = nn.TransformerEncoderLayer(
-            d_embed=model_args.d_embed,
-            num_heads=model_args.n_heads,
-            d_ff=model_args.d_ff,
+            d_model=model_args.d_embed,
+            nhead=model_args.n_heads,
+            dim_feedforward=model_args.d_ff,
             dropout=model_args.dropout,
             activation=model_args.activation,
             layer_norm_eps=1e-5,

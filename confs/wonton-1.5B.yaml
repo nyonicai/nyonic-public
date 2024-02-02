@@ -1,4 +1,4 @@
-model_path: wonton-1.5B.pt
+model_path: models/wonton-1.5B.pt
 tokenizer: tokenizers/nyonic-tokenizer-v0
 gen_conf:
   max_seq_len: 1024
@@ -16,6 +16,8 @@ model_args:
   n_heads: 25
   activation: gelu
   dropout: 0.0
+  pos_embed_type: learnable_pe
+  bias: true
   enable_final_norm: true
   enable_init_weights_gpt2: true
   enable_is_causal: true
