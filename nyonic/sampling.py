@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import torch
 from torch import Tensor
+from torch.nn import Module
 from typing import Callable
-
-from model import GPTModel
 
 
 def sample(
@@ -75,7 +74,7 @@ def sample(
 
 @torch.no_grad()
 def generate_tokens(
-    model: GPTModel,
+    model: Module,
     tokens: Tensor,
     min_prompt_len: int,
     pad_id: int,

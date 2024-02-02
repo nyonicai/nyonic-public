@@ -6,21 +6,21 @@ import argparse
 from argparse import Namespace
 from omegaconf import OmegaConf
 
-from tokenizer import NyonicTokenizer
-from model import GPTModel
-from sampling import sample, generate_tokens
+from nyonic.tokenizer import NyonicTokenizer
+from nyonic.model import GPTModel
+from nyonic.sampling import sample, generate_tokens
 
 
 def parse_args() -> Namespace:
     """Parse arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_conf", type=str, default="confs/nyonic_1.5B_v0.yaml")
+    parser.add_argument("--model_conf", type=str, default="confs/wonton-1.5B.yaml")
     parser.add_argument("--max_tokens", default=200)
-    parser.add_argument("strategy", default="vanilla")
-    parser.add_argument("top_p", default=1.0)
-    parser.add_argument("top_k", default=100)
-    parser.add_argument("temperature", default=1.0)
-    parser.add_argument("device", default="cuda:0")
+    parser.add_argument("--strategy", default="vanilla")
+    parser.add_argument("--top_p", default=1.0)
+    parser.add_argument("--top_k", default=100)
+    parser.add_argument("--temperature", default=1.0)
+    parser.add_argument("--device", default="cuda:0")
     return parser.parse_args()
 
 
