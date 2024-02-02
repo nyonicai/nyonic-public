@@ -45,11 +45,28 @@ def generate() -> str:
         )
     print(f"Loading model from {args.model_conf}")
     nyonic = GPTModel(cfg.model_args).to(torch.bfloat16)
-    ckpt = torch.load(cfg.model_path, device)["module"]
+    ckpt = torch.load(cfg.model_path, device)["state_dict"]
+    omit_args_in_1p5 = [
+        "encoder_layer.self_attn.in_proj_weight",
+        "encoder_layer.self_attn.in_proj_bias",
+        "encoder_layer.self_attn.out_proj.weight",
+        "encoder_layer.self_attn.out_proj.bias",
+        "encoder_layer.linear1.weight",
+        "encoder_layer.linear1.bias",
+        "encoder_layer.linear2.weight",
+        "encoder_layer.linear2.bias",
+        "encoder_layer.norm1.weight",
+        "encoder_layer.norm1.bias",
+        "encoder_layer.norm2.weight",
+        "encoder_layer.norm2.bias",
+        "final_norm.weight",
+        "final_norm.bias",
+    ]
     ckpt = {
         key[6:] if key.startswith("model.") else key: value
         for key, value in ckpt.items()
     }
+    ckpt = {k: v for k, v in ckpt.items() if k not in omit_args_in_1p5}
     nyonic.load_state_dict(ckpt)
     nyonic.to(device)
     nyonic.eval()
@@ -88,5 +105,5 @@ def generate() -> str:
 
 
 if __name__ == "__main__":
-    print("Completion generated:\n")
-    print(generate())
+    generated = generate()
+    print(f"Completion generated:\n {generated}")
