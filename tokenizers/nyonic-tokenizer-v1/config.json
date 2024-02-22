@@ -1,0 +1,1 @@
+{"name": "nyonic_tokenizer_v2", "model_type": "bpe", "vocab_size": 139776, "byte_fallback": true, "split_digits": true, "split_digits_magnitude": 1, "whitespace_tokens_range": 24, "remove_extra_whitespaces": false, "input_sentence_size": 0}
