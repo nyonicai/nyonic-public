@@ -50,7 +50,7 @@ def generate() -> str:
         if "1.5B" in args.model_conf
         else torch.load(cfg.model_path, device)["module"]
     )
-    omit_args_in_1p5 = [
+    omit_args = [
         "encoder_layer.self_attn.in_proj_weight",
         "encoder_layer.self_attn.in_proj_bias",
         "encoder_layer.self_attn.out_proj.weight",
@@ -65,6 +65,7 @@ def generate() -> str:
         "encoder_layer.norm2.bias",
         "final_norm.weight",
         "final_norm.bias",
+        "transformer_encoder.self_attn.rotary_embedding.inv_freq"
     ]
     arg_mappings = {
         "out_proj_weight": "out_proj.weight",
@@ -81,7 +82,7 @@ def generate() -> str:
         key[6:] if key.startswith("model.") else key: value
         for key, value in ckpt.items()
     }
-    ckpt = {map_arg(k): v for k, v in ckpt.items() if k not in omit_args_in_1p5}
+    ckpt = {map_arg(k): v for k, v in ckpt.items() if k not in omit_args}
     nyonic.load_state_dict(ckpt)
     nyonic.to(device)
     nyonic.eval()
