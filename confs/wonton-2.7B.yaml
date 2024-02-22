@@ -16,7 +16,7 @@ model_args:
   n_heads: 20
   activation: gelu
   dropout: 0.0
-  pos_embed_type: learnable_pe
+  pos_embed_type: rotary_pe
   bias: true
   enable_final_norm: true
   enable_init_weights_gpt2: true

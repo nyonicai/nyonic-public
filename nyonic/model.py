@@ -82,6 +82,26 @@ class LearnablePositionalEmbeddings(nn.Module):
         nn.init.normal_(self.token_position_embedding.weight, mean=0.0, std=0.02)
 
 
+class SimpleTokenEmbedding(nn.Embedding):
+    """Simple Token Embedding.
+
+    This is a wrapper around nn.Embedding with custom weight initialization.
+    """
+
+    def __init__(self, vocab_size: int, d_embed: int) -> None:
+        """Initialize the positional encoder."""
+        super().__init__(vocab_size, d_embed)
+        self._init_weights()
+
+    def _init_weights(self) -> None:
+        """Initialize the embedding weights."""
+        nn.init.normal_(self.weight, mean=0.0, std=0.02)
+
+    def forward(self, x: Tensor, _pos_idx: Optional[torch.Tensor] = None) -> Tensor:
+        """Perform a forward pass."""
+        return super().forward(x)
+
+
 def get_mask(seq_len: int) -> Tensor:
     """Get mask matrix for Transformer.
 
@@ -110,6 +130,10 @@ class GPTModel(nn.Module):
 
         if self.pos_embed_type == "learnable_pe":
             self.embedding = LearnablePositionalEmbeddings(model_args)
+        elif self.pos_embed_type == "rotary_pe":
+            self.embedding = SimpleTokenEmbedding(
+                model_args.vocab_size, model_args.d_embed
+            )
         else:
             raise ValueError(
                 f"Unsupported positional embedding type: {self.pos_embed_type}"

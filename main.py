@@ -66,11 +66,22 @@ def generate() -> str:
         "final_norm.weight",
         "final_norm.bias",
     ]
+    arg_mappings = {
+        "out_proj_weight": "out_proj.weight",
+        "out_proj_bias": "out_proj.bias"
+    }
+
+    def map_arg(arg):
+        for source, target in arg_mappings.items():
+            if source in arg:
+                return arg.replace(source, target)
+        return arg
+
     ckpt = {
         key[6:] if key.startswith("model.") else key: value
         for key, value in ckpt.items()
     }
-    ckpt = {k: v for k, v in ckpt.items() if k not in omit_args_in_1p5}
+    ckpt = {map_arg(k): v for k, v in ckpt.items() if k not in omit_args_in_1p5}
     nyonic.load_state_dict(ckpt)
     nyonic.to(device)
     nyonic.eval()
