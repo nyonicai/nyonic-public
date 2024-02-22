@@ -65,7 +65,7 @@ def generate() -> str:
         "encoder_layer.norm2.bias",
         "final_norm.weight",
         "final_norm.bias",
-        "transformer_encoder.self_attn.rotary_embedding.inv_freq"
+        "self_attn.rotary_embedding.inv_freq"
     ]
     arg_mappings = {
         "out_proj_weight": "out_proj.weight",
