@@ -210,7 +210,7 @@ class NyonicAttention(nn.Module):
             q = self.q_layer_norm(q)
             k = self.k_layer_norm(k)
 
-        if self.rotary is not None:
+        if self.rotary:
             q = rearrange_view(q, "B T N D -> B N T D")
             k = rearrange_view(k, "B T N D -> B N T D")
             # Note: rotary_embedding use -2 as the sequence dimension.
