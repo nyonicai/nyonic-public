@@ -202,7 +202,7 @@ class NyonicAttention(nn.Module):
 
         q, k, v = F.linear(x, self.in_proj_weight, self.in_proj_bias).chunk(3, dim=-1)
 
-        q = q.view(q, "B T (N D) -> B T N D", N=self.num_heads)
+        q = rearrange_view(q, "B T (N D) -> B T N D", N=self.num_heads)
         k = rearrange_view(k, "B T (N D) -> B T N D", N=self.num_heads)
         v = rearrange_view(v, "B T (N D) -> B T N D", N=self.num_heads)
 
@@ -237,7 +237,7 @@ class NyonicAttention(nn.Module):
                 attn_bias=attn_bias,
                 op=xops.MemoryEfficientAttentionFlashAttentionOp,
             )
-            .continuew()
+            .contiguous()
             .view(B, T, -1)
         )
         attn_output = F.linear(attn_output, self.out_proj_weight, self.out_proj_bias)
