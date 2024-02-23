@@ -20,7 +20,4 @@ model_args:
   bias: true
   qk_layer_norm: false
   enable_final_norm: true
-  enable_init_weights_gpt2: true
-  enable_is_causal: true
   vocab_size: 50304
-

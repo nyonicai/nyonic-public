@@ -15,22 +15,18 @@
 from __future__ import annotations
 
 import copy
-
-import math
 from typing import Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
+import xformers.ops as xops
+from einops import rearrange
 from omegaconf import DictConfig
 from torch import Tensor
-
 from xformers.components.positional_embedding import RotaryEmbedding
-import xformers.ops as xops
 
 ACTIVATIONS = {"relu": F.relu, "gelu": F.gelu}
-
-from einops import rearrange
 
 
 def rearrange_view(
