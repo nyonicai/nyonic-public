@@ -3,3 +3,4 @@ fsspec
 omegaconf
 torch==2.0.1
 xformers
+einops

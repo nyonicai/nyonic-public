@@ -138,20 +138,6 @@ class SimpleTokenEmbedding(nn.Embedding):
         return super().forward(x)
 
 
-class NyonicMLP(nn.Module):
-    def __init__(
-        self, d_embed: int, d_ff: int, dropout: float, bias: bool, activation: str
-    ):
-        super().__init__()
-        self.linear1 = nn.Linear(d_embed, d_ff, bias=bias)
-        self.linear2 = nn.Linear(d_ff, d_embed, bias=bias)
-        self.dropout = nn.Dropout(dropout)
-        self.activation = ACTIVATIONS[activation]
-
-    def forward(self, x):
-        return self.linear2(self.dropout(self.activation(self.linear1(x))))
-
-
 class NyonicAttention(nn.Module):
     def __init__(
         self,
@@ -300,8 +286,13 @@ class NyonicDecoderLayer(nn.Module):
             bias=bias,
             qk_layer_norm=qk_layer_norm,
         )
-        self.ffn = NyonicMLP(d_embed, d_ff, dropout, bias, activation)
+        # ffn
+        self.linear1 = nn.Linear(d_embed, d_ff, bias=bias)
+        self.linear2 = nn.Linear(d_ff, d_embed, bias=bias)
+        self.dropout = nn.Dropout(dropout)
+        self.activation = ACTIVATIONS[activation]
 
+        # regular term
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
         self.norm1 = nn.LayerNorm(d_embed)
@@ -341,7 +332,9 @@ class NyonicDecoderLayer(nn.Module):
         Args:
             x: torch.Tensor of the input.
         """
-        return self.dropout2(self.ffn(x))
+        return self.dropout2(
+            self.linear2(self.dropout(self.activation(self.linear1(x))))
+        )
 
 
 class NyonicDecoder(nn.Module):
@@ -443,7 +436,7 @@ class GPTModel(nn.Module):
             qk_layer_norm=model_args.qk_layer_norm,
         )
 
-        self.nyonic_decoder = NyonicDecoder(
+        self.transformer_encoder = NyonicDecoder(
             nyonic_layer, model_args.n_layers, norm=final_norm
         )
 
@@ -472,6 +465,6 @@ class GPTModel(nn.Module):
         if pos_idx is not None:
             pos_idx.to(x.device, dtype=torch.long)
         x = self.embedding(x, pos_idx)
-        x = self.nyonic_decoder(x)
+        x = self.transformer_encoder(x)
         x = self.linear(x)
         return x
