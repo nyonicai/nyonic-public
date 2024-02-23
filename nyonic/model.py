@@ -165,8 +165,14 @@ class NyonicAttention(nn.Module):
             self.head_dim * num_heads == self.embed_dim
         ), "embed_dim must be divisible by num_heads"
 
-        self.in_proj = nn.Linear(d_embed, 3 * d_embed, bias=bias)
-        self.out_proj = nn.Linear(d_embed, d_embed, bias=bias)
+        # self.in_proj = nn.Linear(d_embed, 3 * d_embed, bias=bias)
+        # self.out_proj = nn.Linear(d_embed, d_embed, bias=bias)
+
+        self.in_proj_weight = nn.Parameter(torch.empty((3 * d_embed, d_embed)))
+        self.in_proj_bias = nn.Parameter(torch.empty(3 * d_embed)) if bias else None
+
+        self.out_proj_weight = nn.Parameter(torch.empty((d_embed, d_embed)))
+        self.out_proj_bias = nn.Parameter(torch.empty(d_embed)) if bias else None
 
         self.rotary = rotary
         self.qk_layer_norm = qk_layer_norm
