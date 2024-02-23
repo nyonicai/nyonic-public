@@ -19,7 +19,6 @@ model_args:
   pos_embed_type: rotary_pe
   bias: true
   enable_final_norm: true
-  enable_init_weights_gpt2: true
-  enable_is_causal: true
+  qk_layer_norm: false
   vocab_size: 139776
 

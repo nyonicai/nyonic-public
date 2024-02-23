@@ -300,7 +300,7 @@ class NyonicDecoderLayer(nn.Module):
             bias=bias,
             qk_layer_norm=qk_layer_norm,
         )
-        self.ffn = NyonicMLP(d_embed, d_ff, bias, activation)
+        self.ffn = NyonicMLP(d_embed, d_ff, dropout, bias, activation)
 
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
@@ -414,7 +414,6 @@ class GPTModel(nn.Module):
         self.model_type = model_args.model_type
         self.pos_embed_type = model_args.pos_embed_type
         self.enable_final_norm = model_args.enable_final_norm
-        self.enable_is_causal = model_args.enable_is_causal
         self.bias = model_args.bias
 
         if self.pos_embed_type == "learnable_pe":
