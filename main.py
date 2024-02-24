@@ -68,8 +68,8 @@ def generate() -> str:
         "self_attn.rotary_embedding.inv_freq"
     ]
     arg_mappings = {
-        "out_proj_weight": "out_proj.weight",
-        "out_proj_bias": "out_proj.bias"
+        "out_proj.weight": "out_proj_weight",
+        "out_proj.bias": "out_proj_bias"
     }
 
     def map_arg(arg):

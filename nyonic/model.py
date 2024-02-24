@@ -1,11 +1,54 @@
+# Copyright 2024 nyonic ai
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """The model definition for the Lightning model to train GPT models."""
 from __future__ import annotations
 
+import copy
 from typing import Optional
+
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import xformers.ops as xops
+from einops import rearrange
 from omegaconf import DictConfig
 from torch import Tensor
+from xformers.components.positional_embedding import RotaryEmbedding
+
+ACTIVATIONS = {"relu": F.relu, "gelu": F.gelu}
+
+
+def rearrange_view(
+    tensor: Tensor | list[Tensor], pattern: str, **axes_lengths
+) -> Tensor:
+    """Rearrange the axes of a tensor with einops and return a view of the tensor.
+
+    This is a thin wrapper around einops.rearrange but with a view like behaviour.
+    hack until it get implemented in einops.
+    https://github.com/arogozhnikov/einops/issues/296
+    """
+    tensor_output = rearrange(tensor, pattern, **axes_lengths)
+
+    if not tensor_output.data_ptr() == tensor.data_ptr():
+        del tensor_output
+        # here we need to del otherwise if the error is catch
+        # we might have memory problem. lets help the GC
+        raise RuntimeError(
+            "rearrange is not possible in-place use einops.rearange directly"
+        )
+
+    return tensor_output
 
 
 class LearnablePositionalEmbeddings(nn.Module):
@@ -37,7 +80,6 @@ class LearnablePositionalEmbeddings(nn.Module):
         self.token_position_embedding = nn.Embedding(
             model_args.context_len, model_args.d_embed
         )
-        self._init_weights()
 
     def _get_position_emb(
         self, x: torch.Tensor, pos_idx: Optional[torch.Tensor] = None
@@ -76,11 +118,6 @@ class LearnablePositionalEmbeddings(nn.Module):
         out = out.reshape(N, T, -1)
         return self.dropout(out)
 
-    def _init_weights(self) -> None:
-        """Initialize the embedding weights."""
-        nn.init.normal_(self.token_value_embedding.weight, mean=0.0, std=0.02)
-        nn.init.normal_(self.token_position_embedding.weight, mean=0.0, std=0.02)
-
 
 class SimpleTokenEmbedding(nn.Embedding):
     """Simple Token Embedding.
@@ -91,15 +128,259 @@ class SimpleTokenEmbedding(nn.Embedding):
     def __init__(self, vocab_size: int, d_embed: int) -> None:
         """Initialize the positional encoder."""
         super().__init__(vocab_size, d_embed)
-        self._init_weights()
-
-    def _init_weights(self) -> None:
-        """Initialize the embedding weights."""
-        nn.init.normal_(self.weight, mean=0.0, std=0.02)
 
     def forward(self, x: Tensor, _pos_idx: Optional[torch.Tensor] = None) -> Tensor:
         """Perform a forward pass."""
         return super().forward(x)
+
+
+class NyonicAttention(nn.Module):
+    def __init__(
+        self,
+        d_embed: int,
+        num_heads: int,
+        dropout: float = 0.0,
+        rotary: bool = False,
+        bias: bool = False,
+        qk_layer_norm: bool = False,
+    ) -> None:
+        """Initializes the MHA module.
+
+        Args:
+            d_embed: integer of the model embedding dimension
+            num_heads: number of attention heads.
+            dropout: float for the dropout probability.
+            rotary: bool indicating if rotary positional embeddings should be used.
+            bias: bool indicating if bias should be used.
+            qk_layer_norm: bool indicating if layer norm should be applied to the
+                query and key projections.
+        """
+        super().__init__()
+        self.embed_dim = d_embed
+
+        self.num_heads = num_heads
+        self.dropout = dropout
+        self.head_dim = d_embed // num_heads
+        assert (
+            self.head_dim * num_heads == self.embed_dim
+        ), "embed_dim must be divisible by num_heads"
+
+        # self.in_proj = nn.Linear(d_embed, 3 * d_embed, bias=bias)
+        # self.out_proj = nn.Linear(d_embed, d_embed, bias=bias)
+
+        self.in_proj_weight = nn.Parameter(torch.empty((3 * d_embed, d_embed)))
+        self.in_proj_bias = nn.Parameter(torch.empty(3 * d_embed)) if bias else None
+
+        self.out_proj_weight = nn.Parameter(torch.empty((d_embed, d_embed)))
+        self.out_proj_bias = nn.Parameter(torch.empty(d_embed)) if bias else None
+
+        self.rotary = rotary
+        self.qk_layer_norm = qk_layer_norm
+
+        if self.rotary:
+            self.rotary_embedding = RotaryEmbedding(self.head_dim)
+
+        if self.qk_layer_norm:
+            self.q_layer_norm = nn.LayerNorm(self.head_dim)
+            self.k_layer_norm = nn.LayerNorm(self.head_dim)
+
+    def forward(self, x: Tensor) -> Tensor:
+        """Module forward.
+
+        Args:
+            x: torch.Tensor of the input.
+            attn_mask: (optional) Either bool-valued tensor of the attention mask or an
+                AttentionMask enum to indicate the xFormers AttentionBias constructor.
+            stuffing_mask: (optional) tensor indicating the sample indices of the
+                stuffed context vector.
+            is_causal: bool indicating if the attention op is causal. The exact
+                effect depends on this module's attn_type.
+        """
+        B, T, D = x.shape
+        attn_bias: xops.AttentionBias = xops.LowerTriangularMask()
+
+        q, k, v = F.linear(x, self.in_proj_weight, self.in_proj_bias).chunk(3, dim=-1)
+
+        q = rearrange_view(q, "B T (N D) -> B T N D", N=self.num_heads)
+        k = rearrange_view(k, "B T (N D) -> B T N D", N=self.num_heads)
+        v = rearrange_view(v, "B T (N D) -> B T N D", N=self.num_heads)
+
+        if self.qk_layer_norm:
+            q = self.q_layer_norm(q)
+            k = self.k_layer_norm(k)
+
+        if self.rotary:
+            q = rearrange_view(q, "B T N D -> B N T D")
+            k = rearrange_view(k, "B T N D -> B N T D")
+            # Note: rotary_embedding use -2 as the sequence dimension.
+            q, k = self.rotary_embedding(q=q, k=k)
+            q = rearrange_view(q, "B N T D -> B T N D")
+            k = rearrange_view(k, "B N T D -> B T N D")
+
+        # we cast to the same type as v needed for mix precision training
+        q = q.to(v.dtype)
+        k = k.to(v.dtype)
+
+        for tensor_to_check in [q, k, v]:
+            assert tensor_to_check.dtype in [
+                torch.bfloat16,
+                torch.float16,
+            ], f"Our use of flashattn@v2.3.0 does not support {tensor_to_check.dtype}."
+
+        attn_output = (
+            xops.memory_efficient_attention(
+                query=q,
+                key=k,
+                value=v,
+                p=self.dropout if self.training else 0.0,
+                attn_bias=attn_bias,
+                op=xops.MemoryEfficientAttentionFlashAttentionOp,
+            )
+            .contiguous()
+            .view(B, T, -1)
+        )
+        attn_output = F.linear(attn_output, self.out_proj_weight, self.out_proj_bias)
+        return attn_output
+
+
+class NyonicDecoderLayer(nn.Module):
+    """Transformer encoder layer."""
+
+    def __init__(
+        self,
+        d_embed: int,
+        num_heads: int,
+        d_ff: int,
+        dropout: float = 0.1,
+        activation: str = "relu",
+        norm_first: bool = False,
+        rotary: bool = False,
+        bias: bool = False,
+        qk_layer_norm: bool = False,
+    ) -> None:
+        """Initializes the encoder layer.
+
+        Args:
+            d_embed: int of the model embedding dimension.
+            num_heads: int for the number of attention heads.
+            d_ff: int of the feed forward dimension.
+            dropout: float for the dropout probability. Default: 0.1
+            activation: str of the activation function. Default: "relu".
+            norm_first: True if pre-normalization should be used in the transformer.
+            rotary: bool indicating if rotary positional embeddings should be used.
+            bias: bool indicating if bias should be used in every layerss
+            qk_layer_norm: bool indicating if layer norm should be applied to the
+                query and key vectors before the attention op.
+        """
+        super().__init__()
+
+        self.bias = bias
+        self.norm_first = norm_first
+
+        self.self_attn = NyonicAttention(
+            d_embed,
+            num_heads,
+            dropout=dropout,
+            rotary=rotary,
+            bias=bias,
+            qk_layer_norm=qk_layer_norm,
+        )
+        # ffn
+        self.linear1 = nn.Linear(d_embed, d_ff, bias=bias)
+        self.linear2 = nn.Linear(d_ff, d_embed, bias=bias)
+        self.dropout = nn.Dropout(dropout)
+        self.activation = ACTIVATIONS[activation]
+
+        # regular term
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.norm1 = nn.LayerNorm(d_embed)
+        self.norm2 = nn.LayerNorm(d_embed)
+
+    def forward(
+        self,
+        x: Tensor,
+    ) -> Tensor:
+        """Module forward.
+
+        Args:
+            x: torch.Tensor of the input.
+        """
+        if self.norm_first:
+            x = x + self._sa_block(self.norm1(x))
+            x = x + self._ff_block(self.norm2(x))
+        else:
+            x = self.norm1(x + self._sa_block(x))
+            x = self.norm2(x + self._ff_block(x))
+        return x
+
+    def _sa_block(
+        self,
+        x: Tensor,
+    ) -> Tensor:
+        """Attention block forward.
+
+        Args:
+            x: torch.Tensor of the input.
+        """
+        return self.dropout1(self.self_attn(x))
+
+    def _ff_block(self, x: Tensor) -> Tensor:
+        """Feed-forward block forward.
+
+        Args:
+            x: torch.Tensor of the input.
+        """
+        return self.dropout2(
+            self.linear2(self.dropout(self.activation(self.linear1(x))))
+        )
+
+
+class NyonicDecoder(nn.Module):
+    """Encoder stack module with API for context stuffing."""
+
+    def __init__(
+        self,
+        decoder_layer: NyonicDecoderLayer,
+        num_layers: int,
+        norm: Optional[nn.Module] = None,
+    ) -> None:
+        """Initializes the encoder layer stack.
+
+        Args:
+            decoder_layer: encoder layer that will be cloned.
+            num_layers: int of the depth of the stack.
+            norm: (optional) nn.Module of a normalization op. Defaults to None.
+        """
+        super().__init__()
+        layers = []
+        for _ in range(num_layers):
+            layer = copy.deepcopy(decoder_layer)
+            layers.append(layer)
+
+        self.layers = nn.ModuleList(layers)
+        self.norm = norm
+
+    def forward(
+        self,
+        x: Tensor,
+    ) -> Tensor:
+        """Module forward.
+
+        Args:
+            x: torch.Tensor of the input.
+            attn_mask: optional bool-valued tensor of the attention mask.
+            is_causal: bool indicating if the attention op is causal. The exact
+                effect depends on this module's attn_type.
+        """
+        output = x
+        for mod in self.layers:
+            output = mod(output)
+
+        if self.norm is not None:
+            output = self.norm(output)
+
+        return output
 
 
 def get_mask(seq_len: int) -> Tensor:
@@ -125,7 +406,6 @@ class GPTModel(nn.Module):
         self.model_type = model_args.model_type
         self.pos_embed_type = model_args.pos_embed_type
         self.enable_final_norm = model_args.enable_final_norm
-        self.enable_is_causal = model_args.enable_is_causal
         self.bias = model_args.bias
 
         if self.pos_embed_type == "learnable_pe":
@@ -143,38 +423,29 @@ class GPTModel(nn.Module):
         if self.enable_final_norm:
             final_norm = nn.LayerNorm(model_args.d_embed)
 
-        self.transformer_encoder: nn.Module
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=model_args.d_embed,
-            nhead=model_args.n_heads,
-            dim_feedforward=model_args.d_ff,
+        nyonic_layer: nn.Module = NyonicDecoderLayer(
+            d_embed=model_args.d_embed,
+            num_heads=model_args.n_heads,
+            d_ff=model_args.d_ff,
             dropout=model_args.dropout,
             activation=model_args.activation,
-            layer_norm_eps=1e-5,
             norm_first=True,
+            rotary=self.pos_embed_type == "rotary_pe",
+            bias=model_args.bias,
+            qk_layer_norm=model_args.qk_layer_norm,
         )
 
-        self.transformer_encoder = nn.TransformerEncoder(
-            encoder_layer, model_args.n_layers, norm=final_norm
+        self.transformer_encoder = NyonicDecoder(
+            nyonic_layer, model_args.n_layers, norm=final_norm
         )
 
         self.linear = nn.Linear(
-            model_args.d_embed, model_args.vocab_size, bias=self.bias
+            model_args.d_embed, model_args.vocab_size, bias=model_args.bias
         )
-
-        self._init_weights()
-
-    def _init_weights(self) -> None:
-        """Initialize the model weights."""
-        if self.linear.bias is not None:
-            nn.init.zeros_(self.linear.bias)
-        nn.init.normal_(self.linear.weight, mean=0.0, std=0.02)
 
     def forward(
         self,
         x: torch.Tensor,
-        attn_mask: Optional[Tensor] = None,
-        stuffing_mask: Optional[Tensor] = None,
         pos_idx: Optional[Tensor] = None,
     ) -> Tensor:
         """Perform a forward pass for both training and inference.
@@ -192,18 +463,7 @@ class GPTModel(nn.Module):
         """
         if pos_idx is not None:
             pos_idx.to(x.device, dtype=torch.long)
-        if stuffing_mask is not None:
-            stuffing_mask.to(device=x.device, dtype=torch.long)
         x = self.embedding(x, pos_idx)
-
-        if attn_mask is None:
-            attn_mask = get_mask(x.size(1)).to(device=x.device, dtype=x.dtype)
-
-        x = self.transformer_encoder(
-            x,
-            mask=attn_mask,
-            is_causal=self.enable_is_causal,
-        )
-
+        x = self.transformer_encoder(x)
         x = self.linear(x)
         return x
