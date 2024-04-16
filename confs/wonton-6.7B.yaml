@@ -1,0 +1,24 @@
+model_path: models/wonton-6.7B.pt
+tokenizer: tokenizers/nyonic-tokenizer-v1
+gen_conf:
+  max_seq_len: 2048
+  max_gen_len: 512
+  max_batch_size: 16
+  sampling:
+    strategy: vanilla
+    temperature: 1.0
+model_args:
+  model_type: huntun_6.7B
+  context_len: 2048
+  d_embed: 4096
+  d_ff: 16384
+  n_layers: 32
+  n_heads: 32
+  activation: gelu
+  dropout: 0.0
+  pos_embed_type: rotary_pe
+  bias: true
+  enable_final_norm: true
+  qk_layer_norm: false
+  vocab_size: 139776
+
