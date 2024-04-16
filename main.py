@@ -46,9 +46,9 @@ def generate() -> str:
     print(f"Loading model from {args.model_conf}")
     nyonic = GPTModel(cfg.model_args).to(torch.bfloat16)
     ckpt = (
-        torch.load(cfg.model_path, device)["state_dict"]
+        torch.load(cfg.model_path, torch.device("cpu"))["state_dict"]
         if "1.5B" in args.model_conf
-        else torch.load(cfg.model_path, device)["module"]
+        else torch.load(cfg.model_path, torch.device("cpu"))["module"]
     )
     omit_args = [
         "encoder_layer.self_attn.in_proj_weight",
