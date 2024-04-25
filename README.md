@@ -4,7 +4,7 @@ This repository contains minimal code to run models from Nyonic Model Factory wh
 
 _**Latest**_
 
-**04.25.2024** - nyonic releases wonton-7B (base) model for research and use, trained by nyonic’s model training infrastructure. Request access to wonton-7B.  
+**04.25.2024** - nyonic releases wonton-7B (base) model for research and use, trained by nyonic’s model training infrastructure. Request access to [wonton-7B](https://zwowqi2t3sp.feishu.cn/share/base/form/shrcnqINZ3Fjm5ZkjyEtYhO3bfh).  
 
 **03.05.2024** – nyonic releases wonton-3B (base) model for research and use, trained by nyonic’s model training infrastructure
 
