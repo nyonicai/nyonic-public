@@ -14,7 +14,7 @@ from nyonic.sampling import sample, generate_tokens
 def parse_args() -> Namespace:
     """Parse arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_conf", type=str, default="confs/wonton-1.5B.yaml")
+    parser.add_argument("--model_conf", type=str, default="confs/wonton-6.7B.yaml")
     parser.add_argument("--max_tokens", default=200)
     parser.add_argument("--strategy", default="vanilla")
     parser.add_argument("--top_p", default=1.0)
